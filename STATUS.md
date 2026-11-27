@@ -6,7 +6,7 @@ Revisión del 27/11/2026.
 - Recepcionista de WhatsApp para una clínica ficticia (Kinesio Palermo): reserva, mueve y cancela citas, cobra anticipo
   (checkout de prueba) y ofrece los huecos liberados a la lista de espera.
 - Agente por reglas que funciona sin claves; agente con IA (Claude o gateway compatible con OpenAI) si hay clave.
-- Textos en español neutro con tuteo. En esta revisión se cambiaron las herramientas del agente con IA de «turno» a «cita».
+- Textos en español neutro con tuteo. En esta revisión se cambiaron las herramientas del agente con IA de «turno» a «cita», y se quitó el voseo del README («Probala», «Abrí», «Copiá»).
 - Comprobado hoy: 18 tests, typecheck, build y `npm audit` (0 vulnerabilidades) en local; CI en verde en `main`.
 - `AUDITORIA.md` al día: sin críticos ni altos abiertos.
 
