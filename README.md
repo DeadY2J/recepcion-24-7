@@ -3,9 +3,9 @@
 Demo de la **Fábrica**: módulos reutilizables para construir software para pymes de Latinoamérica en días, no en semanas.
 
 Un paciente le manda un audio a las 23:40 a su clínica: *"¿Me puedes pasar la cita del jueves a la tarde?"*.
-Sofi, la asistente con IA, entiende el audio, le ofrece tres horarios libres reales, mueve el turno y, en el mismo instante,
+Sofi, la asistente con IA, entiende el audio, le ofrece tres horarios libres reales, mueve la cita y, en el mismo instante,
 ofrece el hueco que quedó libre a la primera persona de la lista de espera. Cuando esa persona acepta, el panel de la clínica
-suma ese turno al dinero recuperado del mes.
+suma esa cita al dinero recuperado del mes.
 
 ![Sala de demo: chat de WhatsApp a la izquierda, agenda de la clínica a la derecha](docs/sala-demo.png)
 
@@ -18,14 +18,14 @@ suma ese turno al dinero recuperado del mes.
 | Citas reservadas que después no se cumplen | Pide un anticipo por Mercado Pago para confirmar |
 | La recepcionista pasa el día en WhatsApp | Reserva, mueve y cancela sola; la clínica solo mira el panel |
 
-## Probala en 1 minuto
+## Pruébala en 1 minuto
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abrí http://localhost:3000. No hace falta ninguna API key: sin configuración funciona el **agente demo sin conexión**,
+Abre http://localhost:3000. No hace falta ninguna API key: sin configuración funciona el **agente demo sin conexión**,
 que entiende el español coloquial de varios países, con sus modismos ("pásame la cita", "a la tarde", "tipo 5", "la segunda").
 
 ### Guion para el vídeo de 60 segundos
@@ -37,7 +37,7 @@ que entiende el español coloquial de varios países, con sus modismos ("pásame
 
 ## Con IA real, WhatsApp real y cobros reales
 
-Copiá `.env.example` a `.env.local` y completá lo que quieras activar:
+Copia `.env.example` a `.env.local` y completa lo que quieras activar:
 
 - **IA**: `ANTHROPIC_API_KEY` usa Claude con herramientas (buscar horarios, reservar, mover, cancelar).
   También acepta cualquier gateway compatible con OpenAI (`OPENAI_COMPATIBLE_BASE_URL`), por ejemplo OmniRoute u Ollama.
@@ -51,7 +51,7 @@ Copiá `.env.example` a `.env.local` y completá lo que quieras activar:
 ```
 src/fabrica/
   negocio/config.ts      lo único que cambia entre clientes
-  agenda/                motor de turnos puro: reservas, anticipos, lista de espera, métricas
+  agenda/                motor de citas puro: reservas, anticipos, lista de espera, métricas
   agente/                herramientas compartidas + agente demo + agente LLM (AI SDK)
   pagos/ whatsapp/       integraciones reales, activadas por variables de entorno
 src/app/                 sala de demo, checkout de prueba y API

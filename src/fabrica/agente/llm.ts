@@ -43,7 +43,7 @@ Hablas en español latinoamericano neutro con tuteo ("tú", "tienes", "quieres")
 Ahora es ${fechaLarga(ahora.fecha)} (${ahora.fecha}), ${ahora.hora} h en ${cfg.ciudad}. Próximos días: ${proximos}.
 
 Quien escribe: ${paciente ? `${paciente.nombre} (paciente registrado)` : "un número nuevo; pídele el nombre antes de reservar"}.
-Sus citas futuras: ${turnos.length ? turnos.map((t) => `[${t.id}] ${describirTurno(cfg, t)}`).join("; ") : "ninguno"}.
+Sus citas futuras: ${turnos.length ? turnos.map((t) => `[${t.id}] ${describirTurno(cfg, t)}`).join("; ") : "ninguna"}.
 
 Datos del negocio: ${JSON.stringify(infoNegocio(cfg))}
 
@@ -75,8 +75,8 @@ export async function responderConLLM(ctx: Contexto, historial: ModelMessage[], 
       }),
       execute: async (f) => buscarHorarios(ctx, { ...f, limite: 5 }).map((s) => ({ ...s, texto: describirSlot(cfg, s) })),
     }),
-    reservar_turno: tool({
-      description: "Reserva un turno nuevo para quien escribe y genera el link de anticipo.",
+    reservar_cita: tool({
+      description: "Reserva una cita nueva para quien escribe y genera el link de anticipo.",
       inputSchema: z.object({ ...slotSchema, servicioId: z.string(), nombre: z.string().optional() }),
       execute: async ({ fecha, hora, profesionalId, servicioId, nombre }) => {
         try {
@@ -87,8 +87,8 @@ export async function responderConLLM(ctx: Contexto, historial: ModelMessage[], 
         }
       },
     }),
-    mover_turno: tool({
-      description: "Mueve un turno existente del paciente a otro horario libre.",
+    mover_cita: tool({
+      description: "Mueve una cita existente del paciente a otro horario libre.",
       inputSchema: z.object({ turnoId: z.string(), ...slotSchema }),
       execute: async ({ turnoId, fecha, hora, profesionalId }) => {
         try {
@@ -98,8 +98,8 @@ export async function responderConLLM(ctx: Contexto, historial: ModelMessage[], 
         }
       },
     }),
-    cancelar_turno: tool({
-      description: "Cancela un turno del paciente.",
+    cancelar_cita: tool({
+      description: "Cancela una cita del paciente.",
       inputSchema: z.object({ turnoId: z.string() }),
       execute: async ({ turnoId }) => {
         try {

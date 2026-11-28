@@ -36,8 +36,8 @@ Comprobado sin hallazgos:
 | `npm run typecheck` | OK |
 | `npm test` | OK · 18 tests (motor, agente demo, seguridad) |
 | `npm run build` | OK · 7 rutas |
-| CI | `ci.yml` movido a `.github/workflows/` (typecheck, test, build). Aún no ejecutada: el repo no está en GitHub. |
-| Textos | Todo el texto visible en español neutro con tuteo; hay un test que comprueba que las respuestas ante modismos de varios países no llevan voseo, «turno» ni «seña». |
+| CI | `.github/workflows/ci.yml` (typecheck, test, build). En verde en `main` (GitHub Actions, 27/11/2026). |
+| Textos | Todo el texto visible en español neutro con tuteo; hay un test que comprueba que las respuestas ante modismos de varios países no llevan voseo, «turno» ni «seña». Revisión 27/11/2026: las herramientas del agente con IA y sus descripciones decían «turno» (el modelo podía repetirlo); renombradas a `reservar_cita`, `mover_cita` y `cancelar_cita`. |
 | Accesibilidad (revisión de código, no medida) | `lang="es"`, `aria-label` en botones de icono, `aria-live` en el chat, `role="tab"`/`aria-selected` en pestañas, emojis decorativos con `aria-hidden`. **No medido**: contraste de la paleta jacarandá/verde y navegación por teclado; falta pasar Lighthouse/axe. |
 | Rendimiento | Sin medir con Lighthouse. Fuente alojada en local (sin Google Fonts); el panel hace polling cada 2,5 s: aceptable en demo, sustituir por SSE/websocket en producción. |
 | Móvil | Layout con pestañas «WhatsApp / Agenda» por debajo de `lg`. Sin probar en dispositivo real. |
