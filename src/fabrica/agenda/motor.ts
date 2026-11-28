@@ -326,6 +326,16 @@ export function aprobarPago(estado: Estado, cfg: ConfigNegocio, pagoId: string):
   return pago;
 }
 
+/**
+ * Aprueba un pago confirmado por la pasarela solo si existe y el importe cubre el anticipo.
+ * Devuelve null (y no toca nada) si el pago no es nuestro o el importe no alcanza.
+ */
+export function aprobarPagoConfirmado(estado: Estado, cfg: ConfigNegocio, pagoId: string, importe: number): Pago | null {
+  const pago = estado.pagos.find((p) => p.id === pagoId);
+  if (!pago || !Number.isFinite(importe) || importe < pago.monto) return null;
+  return aprobarPago(estado, cfg, pagoId);
+}
+
 export type Metricas = {
   turnosPorIA: number;
   huecosRecuperados: number;

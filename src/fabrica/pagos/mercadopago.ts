@@ -5,6 +5,7 @@
  *
  * Docs: https://www.mercadopago.com.ar/developers/es/reference/preferences/_checkout_preferences/post
  */
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Pago } from "../agenda/tipos";
 import type { ConfigNegocio } from "../negocio/config";
 
@@ -39,12 +40,41 @@ export async function crearLinkDePago(
   return data.init_point;
 }
 
-/** Consulta un pago notificado por webhook y devuelve el id interno si está aprobado. */
-export async function verificarPagoMercadoPago(paymentId: string): Promise<string | null> {
-  const r = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
+/**
+ * Firma del webhook (MERCADOPAGO_WEBHOOK_SECRET): x-signature = "ts=...,v1=..." y el manifiesto
+ * "id:<data.id>;request-id:<x-request-id>;ts:<ts>;" firmado con HMAC-SHA256.
+ * Docs: https://www.mercadopago.com/developers/es/docs/your-integrations/notifications/webhooks
+ */
+export function verificarFirmaWebhook(
+  firma: string | null,
+  idPeticion: string | null,
+  idDato: string,
+  ahoraMs: number = Date.now(),
+): boolean {
+  const secreto = process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim();
+  if (!secreto || !firma || !idPeticion || !idDato) return false;
+  const partes = Object.fromEntries(firma.split(",").map((p) => p.trim().split("=", 2) as [string, string]));
+  const { ts, v1 } = partes;
+  if (!ts || !v1 || !/^\d+$/.test(ts) || !/^[0-9a-f]{64}$/.test(v1)) return false;
+  // Rechaza notificaciones viejas (repetición). La documentación usa segundos; se aceptan también milisegundos.
+  const tsMs = ts.length <= 11 ? Number(ts) * 1000 : Number(ts);
+  if (Math.abs(ahoraMs - tsMs) > 10 * 60_000) return false;
+  const manifiesto = `id:${idDato.toLowerCase()};request-id:${idPeticion};ts:${ts};`;
+  const esperada = createHmac("sha256", secreto).update(manifiesto).digest();
+  return timingSafeEqual(Buffer.from(v1, "hex"), esperada);
+}
+
+export type PagoConfirmado = { pagoId: string; importe: number };
+
+/** Consulta un pago notificado por webhook a la API oficial (nunca se confía en el cuerpo). */
+export async function verificarPagoMercadoPago(paymentId: string): Promise<PagoConfirmado | null> {
+  if (!/^\d{1,20}$/.test(paymentId)) return null;
+  const r = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
     headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` },
+    signal: AbortSignal.timeout(15_000),
   });
-  if (!r.ok) return null;
-  const data = (await r.json()) as { status: string; external_reference?: string };
-  return data.status === "approved" ? data.external_reference ?? null : null;
+  if (!r.ok) throw new Error(`Mercado Pago respondió ${r.status}`);
+  const data = (await r.json()) as { status?: string; external_reference?: string; transaction_amount?: number };
+  if (data.status !== "approved" || !data.external_reference || typeof data.transaction_amount !== "number") return null;
+  return { pagoId: data.external_reference, importe: data.transaction_amount };
 }
