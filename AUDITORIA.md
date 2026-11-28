@@ -16,10 +16,10 @@ Sin fallos críticos ni altos abiertos. Los 2 críticos/altos encontrados se cor
 | S3 | Media | `/api/chat` sin límite de peticiones: con `ANTHROPIC_API_KEY` configurada, abuso = coste ilimitado de IA. | **Corregido**: 20 mensajes/min por IP en chat y 5/min en reinicio (verificado: la petición 21 devuelve 429). Límite en memoria; en producción con varias instancias hace falta uno compartido (Upstash/Redis). |
 | S4 | Media | Webhook de WhatsApp: Meta reintenta entregas y se respondía dos veces; JSON inválido o fallo de envío daban 500 y más reintentos. | **Corregido**: dedupe por id de mensaje, 400 ante JSON inválido, error de envío capturado. El dedupe es por instancia; con BD debe persistirse. |
 | S5 | Media | Faltaban cabeceras de seguridad. | **Corregido** en `next.config.ts`: nosniff, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy, HSTS, CSP mínima (frame-ancestors, base-uri, form-action, object-src) y sin `X-Powered-By`. Verificado con `curl -I`. |
-| S6 | Media | CSP completa (script-src/style-src) no aplicada: Next.js necesita nonces para scripts en línea. | Abierto, pendiente antes de producción real. |
+| S6 | Media | CSP completa (script-src/style-src) no aplicada: Next.js necesita nonces para scripts en línea. | **Corregido (28/11/2026)**: CSP completa con nonce por petición en `src/proxy.ts` (ver sección de revisión). |
 | S7 | Media | El checkout de prueba (`POST /api/pagos/[id]`) marca pagado a quien conozca el id. Es intencional en la demo; se desactiva solo con `MERCADOPAGO_ACCESS_TOKEN`. | Aceptado para la demo. No desplegar en producción sin ese token. |
-| S8 | Baja | El webhook de Mercado Pago no valida `x-signature`; mitigado porque nunca se confía en el cuerpo y se consulta el pago a la API oficial. | Abierto (mejora). Añadir validación de firma y comprobar que el monto coincide con el del anticipo. |
-| S9 | Baja | La comparación del `verify_token` de WhatsApp (GET) no es de tiempo constante. | Abierto (riesgo mínimo). |
+| S8 | Baja | El webhook de Mercado Pago no valida `x-signature`; mitigado porque nunca se confía en el cuerpo y se consulta el pago a la API oficial. | **Corregido (28/11/2026)**: firma `x-signature` obligatoria y comprobación del importe. Test incluido. |
+| S9 | Baja | La comparación del `verify_token` de WhatsApp (GET) no es de tiempo constante. | **Corregido (28/11/2026)**: comparación en tiempo constante sobre hashes. |
 | S10 | Baja | Estado y mensajes en memoria sin tope: un atacante podría inflar la memoria. Mitigado por el límite de peticiones. | Abierto; se resuelve al pasar a Supabase. |
 
 Comprobado sin hallazgos:
@@ -44,6 +44,39 @@ Comprobado sin hallazgos:
 
 ## Pendiente antes de producción real
 1. Medir accesibilidad y rendimiento (Lighthouse/axe) y probar en móvil.
-2. CSP completa con nonces (S6), límite de peticiones compartido (S3) y firma de Mercado Pago (S8).
+2. Límite de peticiones compartido (S3). CSP (S6) y firma de Mercado Pago (S8) corregidas el 28/11/2026.
 3. Sustituir el almacén en memoria por Supabase con RLS por negocio.
 4. Autenticación para el panel de la clínica (hoy es solo de demo).
+
+## Revisión del 28/11/2026 (fase 4 completa)
+
+Pasada de auditoría sobre `main` de las seis apps de la Fábrica, en la nube. Resultado: **sin críticos, altos ni medios
+abiertos que se puedan corregir sin cuentas reales**. Lo que depende de cuentas reales queda pendiente y no se da por bueno.
+
+Corregido en esta pasada:
+- **CSP completa** (S6): `src/proxy.ts` genera un nonce por petición y aplica `default-src 'self'; script-src 'self' 'nonce-…' 'strict-dynamic'`
+  (sin `unsafe-inline` ni `unsafe-eval` en producción), `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`
+  y `upgrade-insecure-requests`. `style-src` mantiene `'unsafe-inline'` porque React usa atributos `style` (riesgo bajo). Las páginas
+  pasan a render dinámico (`connection()` en el layout) para que el nonce sea nuevo en cada visita. Las rutas API llevan
+  `frame-ancestors 'none'; object-src 'none'; base-uri 'none'`. Política en `src/*/csp.ts` con test (`tests/csp.test.ts`).
+- Webhook de Mercado Pago: ahora exige la firma `x-signature` con `MERCADOPAGO_WEBHOOK_SECRET` (HMAC-SHA256, ventana de 10 min contra repeticiones), valida el id, consulta el pago a la API con tiempo límite y solo aprueba si el importe cubre el anticipo (`aprobarPagoConfirmado` en el motor). Límite de 120 peticiones/min. Tests en `tests/pagos.test.ts` (S8).
+- `verify_token` de WhatsApp comparado en tiempo constante (S9).
+- Nuevo `tests/neutro.test.ts`: recorre todos los textos de `src/` buscando voseo y regionalismos («turno», «seña», «che»…). Exentos a propósito `agente/demo.ts` (entiende los modismos del paciente) y `agente/llm.ts` (el prompt los nombra para prohibirlos).
+
+Comprobado (todo contra `next build` + `next start`, Chromium sin cabeza):
+
+| Comprobación | Resultado |
+|---|---|
+| Typecheck · tests · build | OK · 50 tests en verde · OK |
+| `npm audit` | 0 vulnerabilidades |
+| CSP en navegador | Cabecera con nonce en la página; scripts de Next con nonce; React hidrata y responde a clics; 0 errores en consola |
+| Accesibilidad (axe-core 4.10, WCAG 2 A/AA, vista inicial) | 0 incidencias |
+| Móvil (375 px) | Sin desbordamiento horizontal |
+| Rendimiento (Pixel 5 emulado, CPU ×4, red lenta) | LCP 2,3 s · CLS 0 · TTFB ≈ 150 ms (local) |
+| Voseo y modismos | Ninguno fuera de los tests de modismos y de los patrones que sirven para entender al usuario |
+| Documentos de la Fábrica | ALCANCE, AUDITORIA, PRESUPUESTO (marcadores `[TARIFA_HORA_USD]` y `[CUOTA_MENSUAL_USD]` sin rellenar), PROSPECCION y STATUS presentes |
+
+Límites honestos de esta pasada: axe solo cubre la vista inicial (no todos los estados), el rendimiento se midió en local
+(no en Vercel ni con Lighthouse) y no hubo prueba en móviles físicos.
+
+**Pendiente que no se puede dar por bueno sin cuentas reales:** WhatsApp Cloud API y Mercado Pago con cuentas de prueba reales (firma del webhook incluida: solo está probada con firmas generadas en los tests), IA real con clave, Supabase con RLS y autenticación del panel de la clínica.

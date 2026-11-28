@@ -1,13 +1,15 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { procesarMensaje } from "@/fabrica/agente";
 import { enviarTexto, extraerMensajes, verificarFirma, whatsappActivo } from "@/fabrica/whatsapp/cloud-api";
 
 /** Verificación del webhook desde el panel de Meta. */
 export function GET(req: Request) {
   const url = new URL(req.url);
-  const ok =
-    url.searchParams.get("hub.mode") === "subscribe" &&
-    process.env.WHATSAPP_VERIFY_TOKEN &&
-    url.searchParams.get("hub.verify_token") === process.env.WHATSAPP_VERIFY_TOKEN;
+  const esperado = process.env.WHATSAPP_VERIFY_TOKEN;
+  const recibido = url.searchParams.get("hub.verify_token") ?? "";
+  // Comparación en tiempo constante (sobre hashes para igualar longitudes).
+  const h = (t: string) => createHash("sha256").update(t).digest();
+  const ok = url.searchParams.get("hub.mode") === "subscribe" && Boolean(esperado) && timingSafeEqual(h(recibido), h(esperado!));
   return ok ? new Response(url.searchParams.get("hub.challenge")) : new Response("Forbidden", { status: 403 });
 }
 

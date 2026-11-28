@@ -44,7 +44,8 @@ Copia `.env.example` a `.env.local` y completa lo que quieras activar:
   Si el modelo falla, la conversación sigue con el agente demo.
 - **WhatsApp Cloud API**: webhook en `/api/whatsapp/webhook`, con verificación de firma `X-Hub-Signature-256`.
 - **Mercado Pago**: `MERCADOPAGO_ACCESS_TOKEN` crea preferencias de Checkout Pro; el webhook `/api/pagos/webhook`
-  confirma el pago consultando la API (nunca confía en el cuerpo de la notificación).
+  exige la firma `x-signature` (`MERCADOPAGO_WEBHOOK_SECRET`), confirma el pago consultando la API (nunca confía en
+  el cuerpo de la notificación) y comprueba que el importe cubre el anticipo.
 
 ## Cómo está hecho
 
