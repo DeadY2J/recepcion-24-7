@@ -2,6 +2,26 @@
 
 Revisión del 27/11/2026.
 
+## Modo presentación (28/11/2026)
+- Botón «Ver la demo de 60 s»: reinicia los datos y ejecuta el guion de `PROSPECCION.md` (≈55 s) con subtítulos de la
+  voz en off y una barra de seis escenas: audio de Laura, cambio de cita, hueco liberado que acepta la lista de espera,
+  número nuevo que reserva y paga el anticipo de prueba, y cierre con las métricas.
+- Usa la misma API que una persona (chat, estado, checkout de prueba); el motor no tiene atajos. «Detener» corta el
+  guion y «Reiniciar demo» vuelve a los datos iniciales. En móvil cambia solo entre la conversación y la clínica.
+- Comprobado con Playwright: 0 errores de consola, la oferta queda asignada y el anticipo aprobado al terminar.
+
+## Rediseño visual del 28/11/2026
+- Identidad propia: azul noche y menta, tono sereno. Newsreader (serif, la voz de Sofi) y Hanken Grotesk (interfaz),
+  ambas OFL y alojadas en el proyecto (sin Google Fonts; la CSP no cambia).
+- La conversación es la protagonista: ocupa la columna izquierda, fija al desplazarse en escritorio. Sofi habla en serif
+  sobre la noche; el paciente, en burbujas claras.
+- Elemento memorable: dial de 24 h con una luz por cada cita atendida por la IA (menta si la clínica estaba cerrada).
+  La última cita atendida se enciende en su hora. Regla en el motor: `atencionesPorHora` y `abiertaEn` (con tests).
+- La semilla reparte el historial en horas creíbles (consultas nocturnas de verdad nocturnas).
+- Se quitó el voseo que quedaba en la interfaz y el checkout («Escribile», «mirá», «Escribí», «Pedile», «Revisá») y el
+  test de español neutro ahora detecta formas acabadas en vocal con tilde.
+- Accesibilidad: foco visible en menta, dial con descripción textual, `prefers-reduced-motion` respetado; sin desbordamiento a 390 px.
+
 ## Revisión del 28/11/2026 (auditoría fase 4)
 - CSP completa con nonce por petición (`src/proxy.ts`), verificada en navegador sin errores.
 - Webhook de Mercado Pago con firma `x-signature` obligatoria y comprobación del importe del anticipo.
