@@ -2,6 +2,14 @@
 
 Revisión del 27/11/2026.
 
+## Modo presentación (28/11/2026)
+- Botón «Ver la demo de 60 s»: reinicia los datos y ejecuta el guion de `PROSPECCION.md` (≈55 s) con subtítulos de la
+  voz en off y una barra de seis escenas: audio de Laura, cambio de cita, hueco liberado que acepta la lista de espera,
+  número nuevo que reserva y paga el anticipo de prueba, y cierre con las métricas.
+- Usa la misma API que una persona (chat, estado, checkout de prueba); el motor no tiene atajos. «Detener» corta el
+  guion y «Reiniciar demo» vuelve a los datos iniciales. En móvil cambia solo entre la conversación y la clínica.
+- Comprobado con Playwright: 0 errores de consola, la oferta queda asignada y el anticipo aprobado al terminar.
+
 ## Rediseño visual del 28/11/2026
 - Identidad propia: azul noche y menta, tono sereno. Newsreader (serif, la voz de Sofi) y Hanken Grotesk (interfaz),
   ambas OFL y alojadas en el proyecto (sin Google Fonts; la CSP no cambia).

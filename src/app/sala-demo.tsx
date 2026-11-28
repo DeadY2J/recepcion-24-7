@@ -17,6 +17,18 @@ const GUION = [
 
 type Mensaje = VistaPanel["mensajes"][number];
 
+/** Los seis momentos del guion de 60 s de PROSPECCION.md, con la voz en off de cada uno. */
+const ESCENAS = [
+  "Son las 23:40 y una paciente escribe a su clínica.",
+  "La asistente entiende el audio y le ofrece horarios libres reales.",
+  "Responde con un número y la cita se mueve sola.",
+  "El hueco que quedó libre se ofrece al instante a la lista de espera. Esa hora ya no se pierde.",
+  "Los pacientes nuevos reservan y dejan un anticipo para confirmar.",
+  "Recepción 24/7: tu clínica contesta siempre.",
+];
+
+class Detenida extends Error {}
+
 export default function SalaDemo() {
   const [vista, setVista] = useState<VistaPanel | null>(null);
   const [fecha, setFecha] = useState<string | undefined>();
@@ -25,9 +37,15 @@ export default function SalaDemo() {
   const [escribiendo, setEscribiendo] = useState(false);
   const [pendiente, setPendiente] = useState<Mensaje | null>(null);
   const ultimoCambioVisto = useRef<number>(0);
+  const [escena, setEscena] = useState<number | null>(null);
+  const funcion = useRef(0);
+
+  // El guion cambia de teléfono a mitad de una función asíncrona: leemos siempre el actual.
+  const telefonoActual = useRef(telefono);
+  telefonoActual.current = telefono;
 
   const cargar = useCallback(async () => {
-    const q = new URLSearchParams({ telefono });
+    const q = new URLSearchParams({ telefono: telefonoActual.current });
     if (fecha) q.set("fecha", fecha);
     const r = await fetch(`/api/estado?${q}`, { cache: "no-store" });
     const v = (await r.json()) as VistaPanel;
@@ -48,15 +66,15 @@ export default function SalaDemo() {
     return () => clearInterval(id);
   }, [cargar]);
 
-  async function enviar(texto: string, audioSegundos?: number) {
-    if (!texto.trim() || escribiendo) return;
+  async function enviar(texto: string, audioSegundos?: number, tel: string = telefono) {
+    if (!texto.trim()) return;
     setPendiente({ id: "local", rol: "cliente", texto, ts: Date.now(), audio: audioSegundos ? { segundos: audioSegundos } : undefined });
     setEscribiendo(true);
     try {
       await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telefono, texto, audioSegundos }),
+        body: JSON.stringify({ telefono: tel, texto, audioSegundos }),
       });
       await new Promise((r) => setTimeout(r, 400));
     } finally {
@@ -67,10 +85,81 @@ export default function SalaDemo() {
   }
 
   async function reiniciar() {
+    funcion.current++;
+    setEscena(null);
     await fetch("/api/demo/reiniciar", { method: "POST" });
     ultimoCambioVisto.current = 0;
     setFecha(undefined);
+    setTelefono(TELEFONOS[0].valor);
+    telefonoActual.current = TELEFONOS[0].valor;
     await cargar();
+  }
+
+  /**
+   * Modo presentación: ejecuta el guion de 60 s sobre datos recién reiniciados.
+   * Usa la misma API que una persona (chat, estado y checkout de prueba); no hay atajos en el motor.
+   */
+  async function presentar() {
+    await reiniciar();
+    const id = funcion.current;
+    const esperar = async (ms: number) => {
+      await new Promise((r) => setTimeout(r, ms));
+      if (funcion.current !== id) throw new Detenida();
+    };
+    const [laura, nuevo] = [TELEFONOS[0].valor, TELEFONOS[1].valor];
+    try {
+      setPestana("chat");
+      setEscena(0);
+      await esperar(5000);
+      setEscena(1);
+      await enviar(GUION[0].texto, GUION[0].audio, laura);
+      await esperar(8000);
+      setEscena(2);
+      await enviar("1", undefined, laura);
+      await esperar(6000);
+      // El hueco liberado se ofrece al momento; la lista de espera responde a los pocos segundos.
+      setEscena(3);
+      setPestana("clinica");
+      mostrar("agenda");
+      await esperar(12000);
+      await cargar();
+      setEscena(4);
+      setPestana("chat");
+      mostrar("arriba");
+      setTelefono(nuevo);
+      telefonoActual.current = nuevo;
+      await enviar("Quiero agendar una cita de RPG, me duele la espalda", undefined, nuevo);
+      await esperar(3000);
+      await enviar("1", undefined, nuevo);
+      await esperar(2500);
+      await enviar("Ana Torres", undefined, nuevo);
+      await esperar(2500);
+      const r = await fetch(`/api/estado?${new URLSearchParams({ telefono: nuevo })}`, { cache: "no-store" });
+      const v = (await r.json()) as VistaPanel;
+      const pagoId = [...v.mensajes].reverse().find((m) => m.pagoId)?.pagoId;
+      if (pagoId) await fetch(`/api/pagos/${pagoId}`, { method: "POST" });
+      await esperar(1500);
+      await cargar();
+      await esperar(4000);
+      setEscena(5);
+      setPestana("clinica");
+      await esperar(8000);
+      setEscena(null);
+    } catch (e) {
+      if (!(e instanceof Detenida)) throw e;
+    }
+  }
+
+  /** Lleva la vista a la parte del panel que cuenta la escena. */
+  function mostrar(donde: "agenda" | "arriba") {
+    const comportamiento: ScrollBehavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    if (donde === "arriba") window.scrollTo({ top: 0, behavior: comportamiento });
+    else setTimeout(() => document.getElementById("agenda")?.scrollIntoView({ behavior: comportamiento, block: "start" }), 50);
+  }
+
+  function detener() {
+    funcion.current++;
+    setEscena(null);
   }
 
   if (!vista) {
@@ -80,8 +169,8 @@ export default function SalaDemo() {
   const mensajes = pendiente ? [...vista.mensajes, pendiente] : vista.mensajes;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[1400px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-10 lg:py-8">
-      <Encabezado vista={vista} onReiniciar={reiniciar} />
+    <main className={`mx-auto flex min-h-dvh max-w-[1400px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-10 lg:py-8 ${escena !== null ? "pb-36" : ""}`}>
+      <Encabezado vista={vista} onReiniciar={reiniciar} onPresentar={presentar} presentando={escena !== null} />
 
       <div className="flex gap-1 rounded-full bg-noche-alta p-1 lg:hidden" role="tablist" aria-label="Vista">
         {(["chat", "clinica"] as const).map((p) => (
@@ -119,13 +208,49 @@ export default function SalaDemo() {
           </div>
         </section>
       </div>
+
+      {escena !== null && <Subtitulo escena={escena} onDetener={detener} />}
     </main>
+  );
+}
+
+/* ───────────── Modo presentación ───────────── */
+
+function Subtitulo({ escena, onDetener }: { escena: number; onDetener: () => void }) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-20 px-3 pb-3 sm:px-6 sm:pb-6" role="region" aria-label="Modo presentación">
+      <div className="mx-auto max-w-3xl rounded-2xl bg-noche-alta/95 px-5 py-4 ring-1 ring-menta/40 backdrop-blur">
+        <ol className="mb-3 flex gap-1.5" aria-label={`Escena ${escena + 1} de ${ESCENAS.length}`}>
+          {ESCENAS.map((_, i) => (
+            <li key={i} className={`h-1 flex-1 rounded-full ${i <= escena ? "bg-menta" : "bg-noche-borde"}`} aria-hidden />
+          ))}
+        </ol>
+        <div className="flex items-center justify-between gap-4">
+          <p className="voz text-lg leading-snug text-bruma italic sm:text-2xl" aria-live="polite">
+            {ESCENAS[escena]}
+          </p>
+          <button onClick={onDetener} className="shrink-0 rounded-full px-3 py-1.5 text-sm text-bruma ring-1 ring-noche-borde hover:ring-menta">
+            Detener
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 /* ───────────── Encabezado ───────────── */
 
-function Encabezado({ vista, onReiniciar }: { vista: VistaPanel; onReiniciar: () => void }) {
+function Encabezado({
+  vista,
+  onReiniciar,
+  onPresentar,
+  presentando,
+}: {
+  vista: VistaPanel;
+  onReiniciar: () => void;
+  onPresentar: () => void;
+  presentando: boolean;
+}) {
   const h = vista.horarioHoy;
   const minutos = aMin(vista.ahora.hora);
   const abierto = !!h && minutos >= aMin(h.abre) && minutos < aMin(h.cierra);
@@ -143,6 +268,13 @@ function Encabezado({ vista, onReiniciar }: { vista: VistaPanel; onReiniciar: ()
         <p title="Motor de IA en uso">{vista.motorIA === "demo" ? "IA en modo demo, sin conexión" : `IA: ${vista.motorIA}`}</p>
         <button onClick={onReiniciar} className="rounded-full px-3 py-1.5 font-medium text-menta ring-1 ring-noche-borde hover:ring-menta">
           Reiniciar demo
+        </button>
+        <button
+          onClick={onPresentar}
+          disabled={presentando}
+          className="rounded-full bg-menta px-4 py-1.5 font-semibold text-noche hover:bg-bruma disabled:opacity-60"
+        >
+          {presentando ? "Presentando…" : "Ver la demo de 60 s"}
         </button>
       </div>
     </header>
@@ -539,7 +671,7 @@ function Agenda({ vista, onFecha }: { vista: VistaPanel; onFecha: (f: string) =>
   };
 
   return (
-    <div>
+    <div id="agenda" className="scroll-mt-6">
       <div className="mb-3 flex items-end justify-between gap-4">
         <h2 className="titular text-2xl text-bruma">Agenda</h2>
         <p className="text-sm text-bruma-suave">
