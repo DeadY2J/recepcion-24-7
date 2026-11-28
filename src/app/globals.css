@@ -1,46 +1,62 @@
 @import "tailwindcss";
 
+/*
+ * Recepción 24/7: azul noche y menta. La clínica duerme, la recepcionista no.
+ * Newsreader (serif) para la voz de la conversación; Hanken Grotesk para la interfaz.
+ */
 @theme {
-  --color-papel: #f5f6f2;
-  --color-tinta: #18221e;
-  --color-tinta-suave: #4b5a53;
-  --color-bosque: #1e4a3b;
-  --color-bosque-claro: #2f6b55;
-  --color-salvia: #dce7df;
-  --color-salvia-borde: #c3d3c8;
-  --color-jacaranda: #7b5cc4;
-  --color-jacaranda-claro: #ece6fa;
-  --color-burbuja: #d9f3d0;
-  --color-alerta: #a8431f;
-  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --color-noche: #11203a;      /* fondo: la clínica de noche */
+  --color-noche-alta: #182c4b; /* superficies sobre la noche */
+  --color-noche-borde: #2a4166;
+  --color-bruma: #e4ecef;      /* texto principal sobre noche */
+  --color-bruma-suave: #a3b5c6; /* texto secundario sobre noche */
+  --color-menta: #8ee3c8;      /* lo que hace la recepcionista */
+  --color-menta-honda: #1f6f5c; /* menta legible sobre fondo claro */
+  --color-papel: #f2f6f7;      /* superficies claras (checkout, burbujas del paciente) */
+  --color-tinta: #11203a;
+  --color-tinta-suave: #4a5d72;
+  --color-alerta: #f2a48a;
+  --color-alerta-honda: #a8431f;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
 }
 
-html { background: var(--color-papel); color: var(--color-tinta); }
+html { background: var(--color-noche); color: var(--color-bruma); }
 body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-h1, h2 { font-variation-settings: "opsz" 48; }
 
-:focus-visible { outline: 2px solid var(--color-jacaranda); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--color-menta); outline-offset: 3px; border-radius: 6px; }
+.claro :focus-visible { outline-color: var(--color-menta-honda); }
 
-.cifra { font-family: var(--font-cifras), var(--font-bricolage), sans-serif; font-variation-settings: "wdth" 75; font-feature-settings: "tnum"; letter-spacing: -0.02em; }
+.cifra { font-feature-settings: "tnum", "lnum"; }
+.voz { font-family: var(--font-serif); font-variation-settings: "opsz" 16; }
+.titular { font-family: var(--font-serif); font-variation-settings: "opsz" 72; letter-spacing: -0.015em; }
 
-/* El único momento animado: el turno que la IA acaba de tocar florece en jacarandá. */
-@keyframes florecer {
-  0% { box-shadow: 0 0 0 0 rgb(123 92 196 / 0.55); background-color: #d9cdf5; }
-  70% { box-shadow: 0 0 0 10px rgb(123 92 196 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(123 92 196 / 0); background-color: var(--color-jacaranda-claro); }
+/* El momento memorable: cada cita atendida es una luz en el dial; la última se enciende. */
+@keyframes encender {
+  0% { r: 3.5; opacity: 0.2; }
+  30% { r: 8; opacity: 1; }
+  100% { r: 3.5; opacity: 1; }
 }
-.florece { animation: florecer 1.6s ease-out 2; background-color: var(--color-jacaranda-claro); border-color: var(--color-jacaranda) !important; }
+@keyframes onda {
+  from { r: 4; opacity: 0.7; }
+  to { r: 22; opacity: 0; }
+}
+.enciende { animation: encender 1.4s ease-out both; }
+.onda { animation: onda 1.6s ease-out 2 both; }
+
+/* La cita que la IA acaba de tocar en la agenda. */
+@keyframes florecer {
+  0% { box-shadow: 0 0 0 0 rgb(142 227 200 / 0.6); background-color: #2a5a5a; }
+  100% { box-shadow: 0 0 0 10px rgb(142 227 200 / 0); background-color: #1d3d4f; }
+}
+.florece { animation: florecer 1.6s ease-out 2; background-color: #1d3d4f; }
 
 @keyframes escribiendo { 0%, 80%, 100% { opacity: .25 } 40% { opacity: 1 } }
 .punto { animation: escribiendo 1.2s infinite; }
 .punto:nth-child(2) { animation-delay: .15s } .punto:nth-child(3) { animation-delay: .3s }
 
-.fondo-chat {
-  background-color: var(--color-salvia);
-  background-image: radial-gradient(rgb(30 74 59 / 0.07) 1px, transparent 1px);
-  background-size: 14px 14px;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .florece, .punto { animation: none; }
+  .enciende, .onda, .florece, .punto { animation: none; }
+  .onda { display: none; }
+  * { scroll-behavior: auto !important; }
 }

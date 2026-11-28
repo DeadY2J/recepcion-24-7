@@ -7,7 +7,7 @@ const PROHIBIDAS = [
   /\bvos\b/i, /\bche\b/i, /\bacá\b/i, /\bturnos?\b/i, /\bseñas?\b/i, /\bpibes?\b/i, /\bgüey\b/i, /\bpana\b/i,
   /\bchévere\b/i, /\bplata\b/i, /\bdale\b/i, /\bjoya\b/i,
   // Voseo: tenés, querés, podés, reservá, llamá, elegí…
-  /\b(tenés|querés|podés|sabés|reservá|llamá|elegí|probá|escribí|avisá|venís|decime|contame)\b/i,
+  /\b(tenés|querés|podés|sabés|reservá|llamá|elegí|probá|escribí|avisá|venís|mirá|revisá|decime|contame|escribile|pedile)(?![\p{L}])/iu,
 ];
 
 /**
@@ -45,5 +45,6 @@ describe("español neutro en los textos visibles", () => {
 
   it("el detector sí detecta voseo", () => {
     expect(textos('const a = "Che, ¿querés reservar un turno?";').some((t) => PROHIBIDAS.some((re) => re.test(t)))).toBe(true);
+    expect(textos('const b = "Escribí un mensaje";').some((t) => PROHIBIDAS.some((re) => re.test(t)))).toBe(true);
   });
 });

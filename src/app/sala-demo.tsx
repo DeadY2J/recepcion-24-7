@@ -21,7 +21,7 @@ export default function SalaDemo() {
   const [vista, setVista] = useState<VistaPanel | null>(null);
   const [fecha, setFecha] = useState<string | undefined>();
   const [telefono, setTelefono] = useState(TELEFONOS[0].valor);
-  const [pestana, setPestana] = useState<"chat" | "agenda">("chat");
+  const [pestana, setPestana] = useState<"chat" | "clinica">("chat");
   const [escribiendo, setEscribiendo] = useState(false);
   const [pendiente, setPendiente] = useState<Mensaje | null>(null);
   const ultimoCambioVisto = useRef<number>(0);
@@ -74,60 +74,46 @@ export default function SalaDemo() {
   }
 
   if (!vista) {
-    return <main className="grid min-h-dvh place-items-center text-tinta-suave">Abriendo la clínica…</main>;
+    return <main className="grid min-h-dvh place-items-center text-bruma-suave">Abriendo la clínica…</main>;
   }
 
   const mensajes = pendiente ? [...vista.mensajes, pendiente] : vista.mensajes;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[1440px] flex-col gap-6 px-4 py-6 lg:px-8">
+    <main className="mx-auto flex min-h-dvh max-w-[1400px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-10 lg:py-8">
       <Encabezado vista={vista} onReiniciar={reiniciar} />
 
-      <div className="flex rounded-full bg-salvia p-1 lg:hidden" role="tablist">
-        {(["chat", "agenda"] as const).map((p) => (
+      <div className="flex gap-1 rounded-full bg-noche-alta p-1 lg:hidden" role="tablist" aria-label="Vista">
+        {(["chat", "clinica"] as const).map((p) => (
           <button
             key={p}
             role="tab"
             aria-selected={pestana === p}
             onClick={() => setPestana(p)}
-            className={`flex-1 rounded-full py-2 text-sm font-medium ${pestana === p ? "bg-white shadow-sm" : "text-tinta-suave"}`}
+            className={`flex-1 rounded-full py-2 text-sm font-medium ${pestana === p ? "bg-menta text-noche" : "text-bruma-suave"}`}
           >
-            {p === "chat" ? "WhatsApp del paciente" : "Agenda de la clínica"}
+            {p === "chat" ? "Conversación" : "La clínica"}
           </button>
         ))}
       </div>
 
-      <div className="grid flex-1 gap-8 lg:grid-cols-[400px_1fr]">
-        <section className={`${pestana === "chat" ? "block" : "hidden"} lg:block`} aria-label="Chat de WhatsApp simulado">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <label className="text-sm text-tinta-suave" htmlFor="telefono">
-              Escribes como
-            </label>
-            <select
-              id="telefono"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-              className="rounded-lg border border-salvia-borde bg-white px-3 py-1.5 text-sm"
-            >
-              {TELEFONOS.map((t) => (
-                <option key={t.valor} value={t.valor}>
-                  {t.etiqueta}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Telefono
+      <div className="grid flex-1 gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-12">
+        <section className={`${pestana === "chat" ? "flex" : "hidden"} min-w-0 flex-col lg:sticky lg:top-6 lg:flex lg:self-start`} aria-label="Conversación de WhatsApp simulada">
+          <Conversacion
             vista={vista}
             mensajes={mensajes}
             escribiendo={escribiendo}
+            telefono={telefono}
+            onTelefono={setTelefono}
             onEnviar={enviar}
           />
         </section>
 
-        <section className={`${pestana === "agenda" ? "block" : "hidden"} min-w-0 lg:block`} aria-label="Panel de la clínica">
+        <section className={`${pestana === "clinica" ? "block" : "hidden"} min-w-0 lg:block`} aria-label="Panel de la clínica">
+          <Dial vista={vista} />
           <Metricas vista={vista} />
           <Agenda vista={vista} onFecha={setFecha} />
-          <div className="mt-8 grid gap-8 xl:grid-cols-[1fr_320px]">
+          <div className="mt-10 grid gap-10 xl:grid-cols-[1fr_260px]">
             <Actividad vista={vista} />
             <ListaEspera vista={vista} />
           </div>
@@ -140,25 +126,22 @@ export default function SalaDemo() {
 /* ───────────── Encabezado ───────────── */
 
 function Encabezado({ vista, onReiniciar }: { vista: VistaPanel; onReiniciar: () => void }) {
-  const minutos = Number(vista.ahora.hora.slice(0, 2)) * 60 + Number(vista.ahora.hora.slice(3));
-  const abierto = minutos >= 8 * 60 && minutos < 20 * 60;
+  const h = vista.horarioHoy;
+  const minutos = aMin(vista.ahora.hora);
+  const abierto = !!h && minutos >= aMin(h.abre) && minutos < aMin(h.cierra);
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-salvia-borde pb-5">
-      <div>
-        <h1 className="cifra text-4xl font-bold text-bosque sm:text-5xl">{vista.negocio.nombre}</h1>
-        <p className="mt-1 max-w-xl text-tinta-suave">
-          Escribile a {vista.negocio.nombreAsistente}, su recepcionista con IA, y mirá cómo cambia la agenda real de la clínica.
-        </p>
+    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div className="flex items-baseline gap-3">
+        <p className="titular text-2xl text-bruma sm:text-3xl">{vista.negocio.nombre}</p>
+        <p className="text-sm text-bruma-suave">Recepción 24/7</p>
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="rounded-full bg-white px-3 py-1.5 ring-1 ring-salvia-borde">
-          En {vista.negocio.ciudad} son las <strong className="font-semibold">{vista.ahora.hora}</strong>
-          {abierto ? " · la clínica está abierta" : " · la clínica está cerrada, Sofi no"}
-        </span>
-        <span className="rounded-full bg-white px-3 py-1.5 ring-1 ring-salvia-borde" title="Motor de IA en uso">
-          IA: {vista.motorIA === "demo" ? "modo demo sin conexión" : vista.motorIA}
-        </span>
-        <button onClick={onReiniciar} className="rounded-full px-3 py-1.5 font-medium text-bosque underline-offset-4 hover:underline">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-bruma-suave">
+        <p>
+          <span className="cifra text-bruma">{vista.ahora.hora}</span> en {vista.negocio.ciudad},{" "}
+          {abierto ? "clínica abierta" : "clínica cerrada"}
+        </p>
+        <p title="Motor de IA en uso">{vista.motorIA === "demo" ? "IA en modo demo, sin conexión" : `IA: ${vista.motorIA}`}</p>
+        <button onClick={onReiniciar} className="rounded-full px-3 py-1.5 font-medium text-menta ring-1 ring-noche-borde hover:ring-menta">
           Reiniciar demo
         </button>
       </div>
@@ -166,17 +149,25 @@ function Encabezado({ vista, onReiniciar }: { vista: VistaPanel; onReiniciar: ()
   );
 }
 
-/* ───────────── Teléfono ───────────── */
+function aMin(hora: string) {
+  return Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3, 5));
+}
 
-function Telefono({
+/* ───────────── Conversación ───────────── */
+
+function Conversacion({
   vista,
   mensajes,
   escribiendo,
+  telefono,
+  onTelefono,
   onEnviar,
 }: {
   vista: VistaPanel;
   mensajes: Mensaje[];
   escribiendo: boolean;
+  telefono: string;
+  onTelefono: (t: string) => void;
   onEnviar: (texto: string, audio?: number) => void;
 }) {
   const [texto, setTexto] = useState("");
@@ -186,7 +177,9 @@ function Telefono({
 
   useEffect(() => {
     const el = lista.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    if (!el) return;
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: suave ? "smooth" : "auto" });
   }, [mensajes.length, escribiendo]);
 
   function grabar() {
@@ -226,51 +219,69 @@ function Telefono({
   }
 
   return (
-    <div className="mx-auto flex h-[min(760px,calc(100dvh-180px))] min-h-[560px] max-w-[400px] flex-col overflow-hidden rounded-[2.5rem] border-[10px] border-tinta bg-tinta shadow-[0_30px_60px_-20px_rgb(24_34_30/0.45)]">
-      <div className="flex items-center gap-3 bg-bosque px-4 py-3 text-white">
-        <div className="grid size-10 place-items-center rounded-full bg-jacaranda text-sm font-bold" aria-hidden>
-          KP
+    <div className="flex h-[min(820px,calc(100dvh-150px))] min-h-[560px] flex-col">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-noche-borde pb-4">
+        <div>
+          <h1 className="titular text-3xl leading-tight text-bruma sm:text-4xl">Escríbele a {vista.negocio.nombreAsistente}</h1>
+          <p className="mt-1 text-sm text-bruma-suave" aria-live="polite">
+            {escribiendo ? `${vista.negocio.nombreAsistente} está escribiendo…` : "Recepcionista con IA de la clínica, en línea a toda hora"}
+          </p>
         </div>
-        <div className="leading-tight">
-          <p className="font-semibold">{vista.negocio.nombre}</p>
-          <p className="text-xs text-white/75">{escribiendo ? `${vista.negocio.nombreAsistente} está escribiendo…` : "en línea"}</p>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-bruma-suave" htmlFor="telefono">
+            Escribes como
+          </label>
+          <select
+            id="telefono"
+            value={telefono}
+            onChange={(e) => onTelefono(e.target.value)}
+            className="rounded-lg bg-noche-alta px-3 py-1.5 text-sm text-bruma ring-1 ring-noche-borde"
+          >
+            {TELEFONOS.map((t) => (
+              <option key={t.valor} value={t.valor}>
+                {t.etiqueta}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div ref={lista} className="fondo-chat flex-1 space-y-2 overflow-y-auto px-3 py-4" aria-live="polite">
+      <div ref={lista} className="flex-1 space-y-5 overflow-y-auto py-6 pr-1" aria-live="polite" aria-label="Mensajes">
         {mensajes.length === 0 && (
-          <p className="mx-auto mt-6 max-w-[260px] rounded-lg bg-white/80 px-3 py-2 text-center text-xs text-tinta-suave">
-            Prueba con un audio: toca el micrófono y pide, por ejemplo, que te pasen la cita del jueves a la tarde.
+          <p className="voz max-w-md text-xl leading-relaxed text-bruma-suave">
+            Prueba con un audio: toca el micrófono y pide que te pasen la cita del jueves a la tarde. Mira cómo cambia la
+            agenda de la clínica.
           </p>
         )}
         {mensajes.map((m) => (
-          <Burbuja key={m.id} m={m} vista={vista} />
+          <Linea key={m.id} m={m} vista={vista} />
         ))}
         {escribiendo && (
-          <div className="w-fit rounded-xl rounded-tl-sm bg-white px-4 py-3 shadow-sm" aria-label="Escribiendo">
-            <span className="punto inline-block size-1.5 rounded-full bg-tinta-suave" />{" "}
-            <span className="punto inline-block size-1.5 rounded-full bg-tinta-suave" />{" "}
-            <span className="punto inline-block size-1.5 rounded-full bg-tinta-suave" />
+          <div className="flex gap-1.5 pl-5" aria-hidden>
+            <span className="punto size-2 rounded-full bg-menta" />
+            <span className="punto size-2 rounded-full bg-menta" />
+            <span className="punto size-2 rounded-full bg-menta" />
           </div>
         )}
       </div>
 
-      <div className="bg-papel px-2 pt-2">
-        <div className="flex gap-1.5 overflow-x-auto pb-2">
+      <div className="border-t border-noche-borde pt-3">
+        <div className="flex gap-2 overflow-x-auto pb-3" role="group" aria-label="Mensajes de ejemplo">
           {GUION.map((g) => (
             <button
               key={g.texto}
               disabled={escribiendo}
               onClick={() => onEnviar(g.texto, g.audio)}
-              className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs text-tinta ring-1 ring-salvia-borde hover:ring-bosque disabled:opacity-50"
+              className="relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-bruma ring-1 ring-noche-borde hover:ring-menta disabled:opacity-50"
             >
-              {g.audio ? "🎤 " : ""}
+              {g.audio ? <IconoMicro className="size-3.5 text-menta" /> : null}
+              {g.audio ? <span className="sr-only">Audio:</span> : null}
               {g.texto}
             </button>
           ))}
         </div>
         <form
-          className="flex items-center gap-2 pb-3"
+          className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             onEnviar(texto);
@@ -280,12 +291,12 @@ function Telefono({
           <input
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Escribí un mensaje"
+            placeholder="Escribe un mensaje"
             aria-label="Mensaje"
-            className="min-w-0 flex-1 rounded-full bg-white px-4 py-2.5 text-sm ring-1 ring-salvia-borde"
+            className="min-w-0 flex-1 rounded-full bg-papel px-5 py-3 text-[15px] text-tinta placeholder:text-tinta-suave"
           />
           {texto.trim() ? (
-            <button type="submit" disabled={escribiendo} className="grid size-10 place-items-center rounded-full bg-bosque text-white" aria-label="Enviar">
+            <button type="submit" disabled={escribiendo} className="grid size-12 place-items-center rounded-full bg-menta text-noche" aria-label="Enviar">
               <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
                 <path d="M3 20.5 21 12 3 3.5l.01 6.6L15 12 3.01 13.9z" />
               </svg>
@@ -295,12 +306,10 @@ function Telefono({
               type="button"
               onClick={grabar}
               disabled={escribiendo}
-              className={`grid size-10 place-items-center rounded-full text-white ${grabando ? "bg-alerta" : "bg-bosque"}`}
+              className={`grid size-12 place-items-center rounded-full ${grabando ? "bg-alerta text-noche" : "bg-menta text-noche"}`}
               aria-label={grabando ? "Detener grabación" : "Grabar audio"}
             >
-              <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
-                <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" />
-              </svg>
+              <IconoMicro className="size-5" />
             </button>
           )}
         </form>
@@ -309,39 +318,73 @@ function Telefono({
   );
 }
 
-function Burbuja({ m, vista }: { m: Mensaje; vista: VistaPanel }) {
-  const mio = m.rol === "cliente";
-  const hora = new Date(m.ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: vista.negocio.zonaHoraria });
-  const pago = m.pagoId ? vista.pagos[m.pagoId] : undefined;
+function IconoMicro({ className }: { className?: string }) {
   return (
-    <div className={`flex ${mio ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[14px] leading-snug shadow-sm ${mio ? "rounded-tr-sm bg-burbuja" : "rounded-tl-sm bg-white"}`}>
-        {m.audio && (
-          <div className="mb-1 flex items-center gap-2 text-xs text-tinta-suave">
-            <span aria-hidden>🎤</span>
-            <span className="h-1 w-24 rounded-full bg-bosque/30" aria-hidden />
-            <span>0:{String(m.audio.segundos).padStart(2, "0")}</span>
-            <span className="sr-only">Audio transcrito:</span>
-          </div>
-        )}
-        <p className={`whitespace-pre-line ${m.audio ? "italic text-tinta-suave" : ""}`}>
-          <Formato texto={m.texto} />
-        </p>
-        {pago && (
-          <a
-            href={pago.url}
-            target="_blank"
-            className="mt-2 block rounded-lg border border-salvia-borde bg-papel p-3 no-underline hover:border-bosque"
-          >
-            <span className="block text-xs text-tinta-suave">Anticipo para confirmar tu cita</span>
-            <span className="cifra block text-2xl font-bold text-bosque">{moneda(pago.monto, vista)}</span>
-            <span className={`mt-1 block text-sm font-medium ${pago.estado === "aprobado" ? "text-bosque-claro" : "text-jacaranda"}`}>
-              {pago.estado === "aprobado" ? "✓ Pagado, cita confirmada" : "Pagar con Mercado Pago"}
-            </span>
-          </a>
-        )}
-        <span className="mt-0.5 block text-right text-[10px] text-tinta-suave">{hora}</span>
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" />
+    </svg>
+  );
+}
+
+/** Onda fija del audio: barras deterministas según la duración. */
+function Onda({ segundos }: { segundos: number }) {
+  const barras = Array.from({ length: 22 }, (_, i) => 4 + ((i * 7 + segundos * 3) % 11));
+  return (
+    <svg viewBox="0 0 88 16" className="h-4 w-24" aria-hidden>
+      {barras.map((h, i) => (
+        <rect key={i} x={i * 4} y={(16 - h) / 2} width="2" height={h} rx="1" fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+function Linea({ m, vista }: { m: Mensaje; vista: VistaPanel }) {
+  const hora = new Date(m.ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: vista.negocio.zonaHoraria });
+  const pago = m.pagoId ? vista.pagos[m.pagoId] : undefined;
+
+  if (m.rol === "cliente") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-papel px-4 py-2.5 text-[15px] leading-snug text-tinta">
+          {m.audio && (
+            <div className="mb-1 flex items-center gap-2 text-xs text-tinta-suave">
+              <IconoMicro className="size-3.5 text-menta-honda" />
+              <Onda segundos={m.audio.segundos} />
+              <span className="cifra">0:{String(m.audio.segundos).padStart(2, "0")}</span>
+              <span className="sr-only">Audio transcrito:</span>
+            </div>
+          )}
+          <p className={`whitespace-pre-line ${m.audio ? "italic" : ""}`}>
+            <Formato texto={m.texto} />
+          </p>
+          <span className="cifra mt-0.5 block text-right text-[11px] text-tinta-suave">{hora}</span>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="max-w-[92%] border-l-2 border-menta pl-4">
+      <p className="mb-1 text-xs text-bruma-suave">
+        {vista.negocio.nombreAsistente}, <span className="cifra">{hora}</span>
+      </p>
+      <p className="voz whitespace-pre-line text-[19px] leading-[1.5] text-bruma">
+        <Formato texto={m.texto} />
+      </p>
+      {pago && (
+        <a
+          href={pago.url}
+          target="_blank"
+          rel="noopener"
+          className="mt-3 inline-flex flex-col rounded-xl px-4 py-3 no-underline ring-1 ring-menta/60 hover:ring-menta"
+        >
+          <span className="text-xs text-bruma-suave">Anticipo para confirmar tu cita</span>
+          <span className="cifra text-2xl font-semibold text-bruma">{moneda(pago.monto, vista)}</span>
+          <span className="mt-1 text-sm font-medium text-menta">
+            {pago.estado === "aprobado" ? "Pagado, cita confirmada" : "Pagar anticipo (checkout de prueba)"}
+          </span>
+        </a>
+      )}
     </div>
   );
 }
@@ -351,8 +394,112 @@ function Formato({ texto }: { texto: string }) {
   const partes = texto.split(/(\*[^*\n]+\*)/g);
   return (
     <>
-      {partes.map((p, i) => (p.startsWith("*") && p.endsWith("*") && p.length > 2 ? <strong key={i}>{p.slice(1, -1)}</strong> : p))}
+      {partes.map((p, i) => (p.startsWith("*") && p.endsWith("*") && p.length > 2 ? <strong key={i} className="font-semibold">{p.slice(1, -1)}</strong> : p))}
     </>
+  );
+}
+
+/* ───────────── Dial de 24 horas ───────────── */
+
+const C = 200; // centro del dial
+const R = 132; // radio del anillo de horas
+
+function polar(angulo: number, radio: number) {
+  const a = ((angulo - 90) * Math.PI) / 180;
+  return { x: C + radio * Math.cos(a), y: C + radio * Math.sin(a) };
+}
+
+/** Ángulo (grados) de un minuto del día: medianoche arriba, mediodía abajo. */
+const anguloDe = (minutos: number) => (minutos / 1440) * 360;
+
+function arco(desde: number, hasta: number, radio: number) {
+  const a = polar(anguloDe(desde), radio);
+  const b = polar(anguloDe(hasta), radio);
+  const grande = hasta - desde > 720 ? 1 : 0;
+  return `M ${a.x} ${a.y} A ${radio} ${radio} 0 ${grande} 1 ${b.x} ${b.y}`;
+}
+
+function Dial({ vista }: { vista: VistaPanel }) {
+  const total = vista.dial.reduce((s, f) => s + f.abierta + f.cerrada, 0);
+  const cerradas = vista.dial.reduce((s, f) => s + f.cerrada, 0);
+  const ahora = aMin(vista.ahora.hora);
+  const aguja = polar(anguloDe(ahora), R);
+  const h = vista.horarioHoy;
+  const reciente = vista.ultimaAtencion && Date.now() - vista.ultimaAtencion.ts < 12000 ? vista.ultimaAtencion : null;
+
+  return (
+    <figure className="mx-auto max-w-[460px]">
+      <svg
+        viewBox="0 0 400 400"
+        className="w-full"
+        role="img"
+        aria-label={`Dial de 24 horas: ${total} citas atendidas este mes, ${cerradas} con la clínica cerrada. Ahora son las ${vista.ahora.hora}.`}
+      >
+        {/* Anillo de la noche y, encima, el horario de apertura de hoy. */}
+        <circle cx={C} cy={C} r={R} fill="none" stroke="var(--color-noche-alta)" strokeWidth="16" />
+        {h && <path d={arco(aMin(h.abre), aMin(h.cierra), R)} fill="none" stroke="var(--color-noche-borde)" strokeWidth="16" />}
+
+        {/* Marcas de cada hora. */}
+        {Array.from({ length: 24 }, (_, i) => {
+          const a = polar(i * 15, R - 12);
+          const b = polar(i * 15, R - (i % 6 === 0 ? 22 : 16));
+          return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--color-bruma-suave)" strokeOpacity={i % 6 === 0 ? 0.9 : 0.35} strokeWidth="1.5" />;
+        })}
+        {[0, 6, 12, 18].map((hh) => {
+          const p = polar(hh * 15, R - 36);
+          return (
+            <text key={hh} x={p.x} y={p.y + 4} textAnchor="middle" className="cifra" fontSize="12" fill="var(--color-bruma-suave)">
+              {String(hh).padStart(2, "0")}
+            </text>
+          );
+        })}
+
+        {/* Una luz por cita atendida, apiladas hacia fuera en su hora. */}
+        {vista.dial.map((f) => {
+          const n = f.cerrada + f.abierta;
+          return Array.from({ length: n }, (_, k) => {
+            const cerrada = k < f.cerrada;
+            const p = polar(f.hora * 15 + 7.5, R + 18 + k * 11);
+            const nueva = reciente?.hora === f.hora && k === n - 1;
+            return (
+              <g key={`${f.hora}-${k}-${nueva ? reciente?.ts : ""}`}>
+                {nueva && <circle cx={p.x} cy={p.y} r="4" fill="none" stroke="var(--color-menta)" strokeWidth="1.5" className="onda" />}
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="3.5"
+                  className={nueva ? "enciende" : undefined}
+                  fill={cerrada ? "var(--color-menta)" : "var(--color-bruma-suave)"}
+                  fillOpacity={cerrada ? 1 : 0.55}
+                />
+              </g>
+            );
+          });
+        })}
+
+        {/* La hora de ahora en la clínica. */}
+        <circle cx={aguja.x} cy={aguja.y} r="5" fill="var(--color-noche)" stroke="var(--color-menta)" strokeWidth="2" />
+
+        <text x={C} y={C - 6} textAnchor="middle" className="titular cifra" fontSize="64" fill="var(--color-bruma)">
+          {cerradas}
+        </text>
+        <text x={C} y={C + 20} textAnchor="middle" fontSize="13" fill="var(--color-bruma-suave)">
+          citas atendidas
+        </text>
+        <text x={C} y={C + 37} textAnchor="middle" fontSize="13" fill="var(--color-bruma-suave)">
+          con la clínica cerrada
+        </text>
+      </svg>
+      <figcaption className="mt-1 flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs text-bruma-suave">
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-menta" aria-hidden /> clínica cerrada
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-bruma-suave/60" aria-hidden /> clínica abierta
+        </span>
+        <span>{total} citas atendidas por la IA este mes</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -364,27 +511,21 @@ function moneda(valor: number, vista: VistaPanel) {
 
 function Metricas({ vista }: { vista: VistaPanel }) {
   const m = vista.metricas;
+  const filas = [
+    { valor: moneda(m.dineroRecuperado, vista), texto: `recuperados rellenando ${m.huecosRecuperados} citas canceladas con la lista de espera` },
+    { valor: moneda(m.dineroSenas, vista), texto: `en ${m.senasCobradas} anticipos cobrados por adelantado` },
+    { valor: String(m.turnosPorIA), texto: "citas reservadas o movidas por la IA" },
+  ];
   return (
-    <div className="mb-8 grid grid-cols-3 gap-x-4 gap-y-6 border-b border-salvia-borde pb-8 sm:grid-cols-[1.4fr_1fr_1fr_1fr]">
-      <div className="col-span-3 sm:col-span-1">
-        <p className="cifra text-5xl font-bold text-jacaranda sm:text-6xl">{moneda(m.dineroRecuperado, vista)}</p>
-        <p className="mt-1 text-sm text-tinta-suave">
-          recuperados este mes rellenando {m.huecosRecuperados} citas canceladas con la lista de espera
-        </p>
-      </div>
-      <Dato valor={moneda(m.dineroSenas, vista)} texto={`en ${m.senasCobradas} anticipos cobrados por adelantado`} />
-      <Dato valor={String(m.turnosPorIA)} texto="citas reservadas o movidas por la IA" />
-      <Dato valor={String(m.fueraDeHorario)} texto="pacientes atendidos con la clínica cerrada" />
-    </div>
-  );
-}
-
-function Dato({ valor, texto }: { valor: string; texto: string }) {
-  return (
-    <div>
-      <p className="cifra text-2xl font-bold text-bosque sm:text-3xl">{valor}</p>
-      <p className="mt-1 text-sm text-tinta-suave">{texto}</p>
-    </div>
+    <dl className="mt-8 mb-10 grid gap-x-6 gap-y-4 border-y border-noche-borde py-5 sm:grid-cols-3">
+      {filas.map((f) => (
+        <div key={f.texto}>
+          <dt className="sr-only">{f.texto}</dt>
+          <dd className="cifra titular text-2xl text-bruma">{f.valor}</dd>
+          <dd className="mt-0.5 text-sm leading-snug text-bruma-suave">{f.texto}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -399,9 +540,9 @@ function Agenda({ vista, onFecha }: { vista: VistaPanel; onFecha: (f: string) =>
 
   return (
     <div>
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <h2 className="text-xl font-semibold">Agenda</h2>
-        <p className="text-sm text-tinta-suave">
+      <div className="mb-3 flex items-end justify-between gap-4">
+        <h2 className="titular text-2xl text-bruma">Agenda</h2>
+        <p className="text-sm text-bruma-suave">
           {vista.turnos.length} de {vista.horas.length * profesionales.length} citas ocupadas
         </p>
       </div>
@@ -415,25 +556,27 @@ function Agenda({ vista, onFecha }: { vista: VistaPanel; onFecha: (f: string) =>
               role="tab"
               aria-selected={activo}
               onClick={() => onFecha(f)}
-              className={`flex min-w-14 flex-col items-center rounded-xl px-3 py-2 ${activo ? "bg-bosque text-white" : "hover:bg-salvia"}`}
+              className={`flex min-w-12 flex-col items-center rounded-lg px-2.5 py-1.5 ${activo ? "bg-menta text-noche" : "text-bruma-suave hover:bg-noche-alta"}`}
             >
               <span className="text-xs capitalize">{e.nombre}</span>
-              <span className="cifra text-xl font-bold">{e.num}</span>
+              <span className="cifra text-lg font-semibold">{e.num}</span>
             </button>
           );
         })}
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[620px] table-fixed border-separate border-spacing-1 text-sm">
+        <table className="w-full min-w-[560px] table-fixed border-separate border-spacing-1 text-sm">
           <thead>
             <tr>
-              <th className="w-14" />
+              <th className="w-12">
+                <span className="sr-only">Hora</span>
+              </th>
               {profesionales.map((p) => (
-                <th key={p.id} scope="col" className="pb-1 text-left font-medium">
-                  <span className="mr-2 inline-block size-2.5 rounded-full align-middle" style={{ background: p.color }} aria-hidden />
+                <th key={p.id} scope="col" className="pb-1 text-left font-medium text-bruma">
+                  <span className="mr-2 inline-block size-2 rounded-full align-middle" style={{ background: p.color }} aria-hidden />
                   {p.nombre}
-                  <span className="block text-xs font-normal text-tinta-suave">{p.especialidad}</span>
+                  <span className="block text-xs font-normal text-bruma-suave">{p.especialidad}</span>
                 </th>
               ))}
             </tr>
@@ -441,7 +584,7 @@ function Agenda({ vista, onFecha }: { vista: VistaPanel; onFecha: (f: string) =>
           <tbody>
             {vista.horas.map((h) => (
               <tr key={h}>
-                <th scope="row" className="cifra pr-2 text-right align-top text-base font-semibold text-tinta-suave">
+                <th scope="row" className="cifra pr-2 text-right align-top text-sm font-medium text-bruma-suave">
                   {h}
                 </th>
                 {profesionales.map((p) => {
@@ -449,31 +592,40 @@ function Agenda({ vista, onFecha }: { vista: VistaPanel; onFecha: (f: string) =>
                   const oferta = vista.ofertas.find((x) => x.hora === h && x.profesionalId === p.id);
                   if (t) {
                     const resaltado = reciente?.turnoId === t.id;
+                    const nota =
+                      t.estado === "pendiente_sena"
+                        ? "esperando anticipo"
+                        : t.origen === "lista_espera"
+                          ? "desde la lista de espera"
+                          : t.origen === "ia"
+                            ? "vía IA"
+                            : null;
                     return (
                       <td
                         key={`${p.id}-${reciente && resaltado ? reciente.ts : ""}`}
-                        className={`h-14 rounded-lg border-l-4 bg-white px-2.5 py-1.5 align-top ${resaltado ? "florece" : ""}`}
-                        style={{ borderLeftColor: p.color }}
+                        className={`h-12 rounded-md bg-noche-alta px-2.5 py-1.5 align-top ${resaltado ? "florece" : ""}`}
+                        style={{ boxShadow: `inset 3px 0 0 ${p.color}` }}
                       >
-                        <span className="block truncate font-medium">{t.paciente}</span>
-                        <span className="block truncate text-xs text-tinta-suave">
-                          {t.servicio}
-                          {t.estado === "pendiente_sena" && " · esperando anticipo"}
-                          {t.origen === "lista_espera" && " · desde lista de espera"}
-                          {t.origen === "ia" && t.estado !== "pendiente_sena" && " · vía IA"}
+                        <span className="block truncate font-medium text-bruma">{t.paciente}</span>
+                        <span className={`block truncate text-xs ${t.origen !== "recepcion" || t.estado === "pendiente_sena" ? "text-menta" : "text-bruma-suave"}`}>
+                          {nota ? `${t.servicio}, ${nota}` : t.servicio}
                         </span>
                       </td>
                     );
                   }
                   if (oferta) {
                     return (
-                      <td key={p.id} className="h-14 rounded-lg border border-dashed border-jacaranda bg-jacaranda-claro/60 px-2.5 py-1.5 align-top">
-                        <span className="block text-xs font-medium text-jacaranda">Hueco liberado</span>
-                        <span className="block truncate text-xs text-tinta-suave">Ofrecido a {oferta.paciente}…</span>
+                      <td key={p.id} className="h-12 rounded-md border border-dashed border-menta px-2.5 py-1.5 align-top">
+                        <span className="block text-xs font-medium text-menta">Hueco liberado</span>
+                        <span className="block truncate text-xs text-bruma-suave">Ofrecido a {oferta.paciente}…</span>
                       </td>
                     );
                   }
-                  return <td key={p.id} className="h-14 rounded-lg border border-dashed border-salvia-borde" aria-label="Libre" />;
+                  return (
+                    <td key={p.id} className="h-12 rounded-md border border-dashed border-noche-borde">
+                      <span className="sr-only">Libre</span>
+                    </td>
+                  );
                 })}
               </tr>
             ))}
@@ -496,12 +648,12 @@ function hace(ts: number): string {
 function Actividad({ vista }: { vista: VistaPanel }) {
   return (
     <div>
-      <h2 className="mb-3 text-xl font-semibold">Lo que hizo Sofi</h2>
-      <ol className="divide-y divide-salvia-borde">
-        {vista.eventos.slice(0, 10).map((e) => (
+      <h2 className="titular mb-3 text-2xl text-bruma">Lo que hizo {vista.negocio.nombreAsistente}</h2>
+      <ol className="divide-y divide-noche-borde">
+        {vista.eventos.slice(0, 8).map((e) => (
           <li key={e.id} className="flex gap-3 py-2.5 text-sm">
-            <span className="w-20 shrink-0 text-tinta-suave">{hace(e.ts)}</span>
-            <span className={e.tipo === "hueco_recuperado" ? "font-medium text-jacaranda" : ""}>{e.texto}</span>
+            <span className="w-20 shrink-0 text-bruma-suave">{hace(e.ts)}</span>
+            <span className={e.tipo === "hueco_recuperado" ? "text-menta" : "text-bruma"}>{e.texto}</span>
           </li>
         ))}
       </ol>
@@ -513,17 +665,15 @@ function ListaEspera({ vista }: { vista: VistaPanel }) {
   const estados = { esperando: "Esperando lugar", ofrecido: "Se le ofreció un hueco", asignado: "Ya tiene cita" } as const;
   return (
     <div>
-      <h2 className="mb-3 text-xl font-semibold">Lista de espera</h2>
-      <ul className="space-y-2">
+      <h2 className="titular mb-3 text-2xl text-bruma">Lista de espera</h2>
+      <ul className="divide-y divide-noche-borde">
         {vista.espera.map((e) => (
-          <li key={e.id} className="rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-salvia-borde">
-            <span className="block font-medium">{e.paciente}</span>
-            <span className="block text-xs text-tinta-suave">
+          <li key={e.id} className="py-2.5 text-sm">
+            <span className="block font-medium text-bruma">{e.paciente}</span>
+            <span className="block text-xs text-bruma-suave">
               {e.servicio}, prefiere {e.preferencia === "cualquiera" ? "cualquier horario" : `la ${e.preferencia}`}
             </span>
-            <span className={`mt-1 block text-xs font-medium ${e.estado === "esperando" ? "text-tinta-suave" : "text-jacaranda"}`}>
-              {estados[e.estado]}
-            </span>
+            <span className={`mt-0.5 block text-xs ${e.estado === "esperando" ? "text-bruma-suave" : "text-menta"}`}>{estados[e.estado]}</span>
           </li>
         ))}
       </ul>
