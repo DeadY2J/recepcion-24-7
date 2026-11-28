@@ -63,3 +63,32 @@ describe("agenda", () => {
     expect(tarde.map((s) => s.hora)).toContain("16:00");
   });
 });
+
+describe("dial de 24 horas", () => {
+  it("reparte las citas atendidas por hora y separa las que llegan con la clínica cerrada", () => {
+    const estado = crearEstadoDemo(cfg, { fecha: "2026-11-25", hora: "10:00" }, Date.parse("2026-11-25T13:00:00Z"));
+    estado.eventos = [];
+    // Miércoles 25/11 en Buenos Aires (UTC-3): 23:14 cerrada, 10:30 abierta.
+    motor.registrarEvento(estado, "turno_reservado", "noche", { ts: Date.parse("2026-11-26T02:14:00Z") });
+    motor.registrarEvento(estado, "turno_movido", "mañana", { ts: Date.parse("2026-11-25T13:30:00Z") });
+    // No cuentan: un cobro y un evento hecho a mano por la clínica.
+    motor.registrarEvento(estado, "sena_cobrada", "cobro", { ts: Date.parse("2026-11-25T13:40:00Z") });
+    motor.registrarEvento(estado, "turno_reservado", "a mano", { ts: Date.parse("2026-11-25T14:00:00Z"), porIA: false });
+    const dial = motor.atencionesPorHora(estado, cfg);
+    expect(dial).toHaveLength(24);
+    expect(dial[23]).toEqual({ hora: 23, abierta: 0, cerrada: 1 });
+    expect(dial[10]).toEqual({ hora: 10, abierta: 1, cerrada: 0 });
+    expect(dial.reduce((s, f) => s + f.abierta + f.cerrada, 0)).toBe(2);
+  });
+
+  it("el domingo la clínica está cerrada todo el día", () => {
+    expect(motor.abiertaEn(cfg, "2026-11-29", 11 * 60)).toBe(false);
+    expect(motor.abiertaEn(cfg, "2026-11-30", 11 * 60)).toBe(true);
+    expect(motor.abiertaEn(cfg, "2026-11-30", 20 * 60)).toBe(false);
+  });
+
+  it("la demo trae citas atendidas con la clínica cerrada", () => {
+    const dial = motor.atencionesPorHora(crearEstadoDemo(cfg, { fecha: "2026-11-25", hora: "10:00" }), cfg);
+    expect(dial.reduce((s, f) => s + f.cerrada, 0)).toBeGreaterThan(3);
+  });
+});

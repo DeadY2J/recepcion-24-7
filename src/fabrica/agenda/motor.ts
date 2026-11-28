@@ -5,7 +5,7 @@
  */
 import type { ConfigNegocio } from "../negocio/config";
 import type { Ahora } from "./tiempo";
-import { aHora, aMinutos, diaSemana, fechaCorta, franjaDe, formatearMoneda, sumarDias } from "./tiempo";
+import { aHora, aMinutos, ahoraEn, diaSemana, fechaCorta, franjaDe, formatearMoneda, sumarDias } from "./tiempo";
 import type { Estado, EsperaItem, Evento, Franja, Pago, Paciente, Slot, Turno, TipoEvento, OrigenTurno } from "./tipos";
 
 /** Segundos que tarda (simulado) alguien de la lista de espera en aceptar un hueco. */
@@ -362,4 +362,41 @@ export function metricas(estado: Estado, cfg: ConfigNegocio, ahora: Ahora): Metr
     fueraDeHorario: contar("mensaje_fuera_de_horario"),
     ocupacionHoy: horasHoy ? Math.round((ocupadosHoy / horasHoy) * 100) : 0,
   };
+}
+
+/* ───────────── Dial de 24 horas ───────────── */
+
+/** Eventos que cuentan como una cita atendida por la recepcionista. */
+const TIPOS_ATENCION: ReadonlySet<TipoEvento> = new Set(["turno_reservado", "turno_movido", "turno_cancelado", "hueco_recuperado"]);
+
+export type FranjaDial = {
+  /** Hora del día en la zona del negocio (0-23). */
+  hora: number;
+  /** Citas atendidas en esa hora con la clínica abierta. */
+  abierta: number;
+  /** Citas atendidas en esa hora con la clínica cerrada. */
+  cerrada: number;
+};
+
+/** ¿Está abierta la clínica en ese día y minuto? */
+export function abiertaEn(cfg: ConfigNegocio, fecha: string, minutos: number): boolean {
+  const h = cfg.horarios[diaSemana(fecha)];
+  return !!h && minutos >= aMinutos(h.abre) && minutos < aMinutos(h.cierra);
+}
+
+/**
+ * Reparte las citas atendidas por la IA en las 24 horas del día (hora local del negocio),
+ * separando las que llegaron con la clínica abierta y cerrada. Alimenta el dial de la portada.
+ */
+export function atencionesPorHora(estado: Estado, cfg: ConfigNegocio): FranjaDial[] {
+  const dial: FranjaDial[] = Array.from({ length: 24 }, (_, hora) => ({ hora, abierta: 0, cerrada: 0 }));
+  for (const e of estado.eventos) {
+    if (!e.porIA || !TIPOS_ATENCION.has(e.tipo)) continue;
+    const local = ahoraEn(cfg.zonaHoraria, new Date(e.ts));
+    const minutos = aMinutos(local.hora);
+    const franja = dial[Math.floor(minutos / 60)];
+    if (abiertaEn(cfg, local.fecha, minutos)) franja.abierta++;
+    else franja.cerrada++;
+  }
+  return dial;
 }

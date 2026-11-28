@@ -6,7 +6,7 @@
 import type { ConfigNegocio } from "../negocio/config";
 import { horasDelDia, montoSena, nuevoId, registrarEvento, servicio } from "./motor";
 import type { Ahora } from "./tiempo";
-import { aMinutos, diaSemana, sumarDias } from "./tiempo";
+import { aMinutos, ahoraEn, diaSemana, sumarDias } from "./tiempo";
 import type { Estado, Turno } from "./tipos";
 
 export const TELEFONO_DEMO = "+54 9 11 5555-0101";
@@ -33,6 +33,12 @@ export function proximoJueves(hoy: string): string {
     if (diaSemana(f) === 4) return f;
   }
   return sumarDias(hoy, 7);
+}
+
+/** El mismo día local que `baseMs`, pero a los `minutos` indicados (hora del negocio). */
+function tsALaHora(baseMs: number, zonaHoraria: string, minutos: number): number {
+  const local = aMinutos(ahoraEn(zonaHoraria, new Date(baseMs)).hora);
+  return baseMs + (minutos - local) * 60_000;
 }
 
 export function crearEstadoDemo(cfg: ConfigNegocio, ahora: Ahora, ahoraMs: number = Date.now()): Estado {
@@ -110,22 +116,26 @@ export function crearEstadoDemo(cfg: ConfigNegocio, ahora: Ahora, ahoraMs: numbe
 
   // Historial del mes para que el panel cuente una historia.
   estado.secuencia = 1000;
-  const historial: Array<[number, Parameters<typeof registrarEvento>[1], string, number | undefined, boolean]> = [];
+  // Las consultas nocturnas llegan a horas creíbles para que el dial de 24 h cuente la historia.
+  const NOCHE = ["23:14", "21:40", "00:35", "22:20", "07:10", "23:50", "20:45", "06:30", "01:15"];
+  const historial: Array<[number, Parameters<typeof registrarEvento>[1], string, number | undefined, string | null]> = [];
   for (let i = 0; i < 18; i++) {
     const pac = estado.pacientes[1 + Math.floor(azar() * 20)];
     const precio = servicio(cfg, "kine").precio;
     const diasAtras = 1 + Math.floor(azar() * 20);
     const nocturno = azar() > 0.5;
-    historial.push([diasAtras, "turno_reservado", `${pac.nombre} reservó por WhatsApp${nocturno ? " (23:14 h, fuera de horario)" : ""}`, undefined, true]);
-    if (nocturno) historial.push([diasAtras, "mensaje_fuera_de_horario", `Consulta de ${pac.nombre} respondida fuera de horario`, undefined, true]);
-    if (azar() > 0.25) historial.push([diasAtras, "sena_cobrada", `Anticipo de ${pac.nombre} cobrado por Mercado Pago`, montoSena(cfg, "kine"), true]);
-    if (i % 3 === 0) historial.push([diasAtras, "hueco_recuperado", `Hueco recuperado desde la lista de espera para ${pac.nombre}`, precio, true]);
+    const hora = nocturno ? NOCHE[i % NOCHE.length] : null;
+    historial.push([diasAtras, "turno_reservado", `${pac.nombre} reservó por WhatsApp${hora ? ` (${hora} h, fuera de horario)` : ""}`, undefined, hora]);
+    if (hora) historial.push([diasAtras, "mensaje_fuera_de_horario", `Consulta de ${pac.nombre} respondida fuera de horario`, undefined, hora]);
+    if (azar() > 0.25) historial.push([diasAtras, "sena_cobrada", `Anticipo de ${pac.nombre} cobrado por Mercado Pago`, montoSena(cfg, "kine"), hora]);
+    if (i % 3 === 0) historial.push([diasAtras, "hueco_recuperado", `Hueco recuperado desde la lista de espera para ${pac.nombre}`, precio, null]);
   }
   historial
     .sort((a, b) => b[0] - a[0])
-    .forEach(([diasAtras, tipo, texto, monto, porIA]) =>
-      registrarEvento(estado, tipo, texto, { monto, porIA, ts: ahoraMs - diasAtras * 86400000 - Math.floor(azar() * 36e6) }),
-    );
+    .forEach(([diasAtras, tipo, texto, monto, hora]) => {
+      const minutos = hora ? aMinutos(hora) : 9 * 60 + Math.floor(azar() * 600);
+      registrarEvento(estado, tipo, texto, { monto, porIA: true, ts: tsALaHora(ahoraMs - diasAtras * 86400000, cfg.zonaHoraria, minutos) });
+    });
   nuevoId(estado, "seed");
   return estado;
 }

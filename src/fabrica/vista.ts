@@ -1,8 +1,8 @@
 /** Lo que el panel necesita ver, ya resuelto (nombres, colores, importes). */
 import { ahoraNegocio, leerEstado } from "./agenda/almacen";
-import { horasDelDia, metricas, normalizarTelefono, paciente, pacientePorTelefono, servicio, turnosActivos } from "./agenda/motor";
+import { atencionesPorHora, horasDelDia, metricas, normalizarTelefono, paciente, pacientePorTelefono, servicio, turnosActivos } from "./agenda/motor";
 import { TELEFONO_DEMO } from "./agenda/semilla";
-import { sumarDias } from "./agenda/tiempo";
+import { ahoraEn, diaSemana, sumarDias } from "./agenda/tiempo";
 import { modeloConfigurado } from "./agente/llm";
 import { negocio } from "./negocio/config";
 
@@ -53,6 +53,10 @@ export function vistaPanel(fechaPedida?: string, telefono: string = TELEFONO_DEM
       estado: e.estado,
     })),
     metricas: metricas(estado, negocio, ahora),
+    dial: atencionesPorHora(estado, negocio),
+    horarioHoy: negocio.horarios[diaSemana(ahora.fecha)],
+    /** Hora local de la última cita atendida por la IA en esta sesión (para encenderla en el dial). */
+    ultimaAtencion: estado.ultimoCambio ? { ts: estado.ultimoCambio.ts, hora: Number(ahoraEn(negocio.zonaHoraria, new Date(estado.ultimoCambio.ts)).hora.slice(0, 2)) } : null,
     eventos: estado.eventos.slice(0, 25),
     ultimoCambio: estado.ultimoCambio ?? null,
     mensajes: conv?.mensajes ?? [],
